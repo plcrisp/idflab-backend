@@ -1,0 +1,80 @@
+# Python
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+
+venv/
+.env/
+.venv/
+
+# Environment variables
+
+.env
+.env.*
+!.env.example
+
+# Logs
+
+*.log
+logs/
+
+# Database
+
+*.db
+*.sqlite3
+
+# Alembic (migrations)
+
+alembic/versions/**pycache**/
+
+# FastAPI / Uvicorn
+
+*.pid
+
+# Celery
+
+celerybeat-schedule
+celerybeat.pid
+
+# Redis dump
+
+dump.rdb
+
+# Docker
+
+*.tar
+docker-compose.override.yml
+
+# IDEs
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Coverage / Tests
+
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build / Dist
+
+build/
+dist/
+*.egg-info/
+
+# Node (caso tenha scripts ou frontend junto)
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
