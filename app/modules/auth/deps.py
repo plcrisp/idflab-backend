@@ -7,6 +7,7 @@ from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User
 from app.modules.users import repository as user_repository
+from app.modules.auth.blacklist import exists
 
 # warns swagger that these endpoints require authentication
 security = HTTPBearer()
@@ -16,28 +17,36 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """
-    Intercepta a requisição, valida o token e devolve o usuário logado.
-    """
+
     token = credentials.credentials
-    
+
     # decode token to get user ID
-    user_id_str = decode_access_token(token)
-    
-    if not user_id_str:
+    payload = decode_access_token(token)
+
+    if not payload:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Token inválido ou expirado. Faça login novamente.",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=401,
+            detail="Token inválido ou expirado",
         )
+
+    jti = payload.get("jti")
+
+    # 🔥 CHECK BLACKLIST
+    if exists(jti):
+        raise HTTPException(
+            status_code=401,
+            detail="Token revogado",
+        )
+
+    user_id_str = payload.get("sub")
 
     # search for user in database
     user = user_repository.get_user_by_id(db, user_id=uuid.UUID(user_id_str))
-    
+
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="O usuário dono deste token não existe mais."
+            status_code=404,
+            detail="Usuário não existe",
         )
 
     return user

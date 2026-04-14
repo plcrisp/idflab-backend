@@ -3,6 +3,7 @@ from typing import Any, Union
 from passlib.context import CryptContext
 from jwt.exceptions import PyJWTError
 import jwt
+import uuid
 
 from app.core.config import settings
 
@@ -18,21 +19,36 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # generating JWT tokens
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
+    
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES) # 7 days
-    
-    to_encode = {"exp": expire, "sub": str(subject)}
-    
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+
+    jti = str(uuid.uuid4())
+
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "jti": jti,  # for blacklisting tokens on logout
+    }
+
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )
+
     return encoded_jwt
+
+
 
 # decoding JWT tokens
 def decode_access_token(token: str) -> str | None:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return payload.get("sub")
+        return payload
     except PyJWTError:
         return None
