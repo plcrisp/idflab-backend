@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Union
 from passlib.context import CryptContext
+from jwt.exceptions import PyJWTError
 import jwt
 
 from app.core.config import settings
@@ -27,3 +28,11 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     
     return encoded_jwt
+
+# decoding JWT tokens
+def decode_access_token(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return payload.get("sub")
+    except PyJWTError:
+        return None
