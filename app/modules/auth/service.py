@@ -10,6 +10,23 @@ from app.modules.auth.blacklist import add
 
 
 
+# Helper function to invalidate tokens by adding their jti to the blacklist
+def _invalidate_payload(payload: dict | None):
+    if not payload:
+        return
+        
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    
+    if jti and exp:
+        now = datetime.now(timezone.utc)
+        expire_time = datetime.fromtimestamp(exp, tz=timezone.utc)
+        expires_in = int((expire_time - now).total_seconds())
+        if expires_in > 0:
+            add(jti, expires_in)
+
+
+
 def register_user(db: Session, user_in: UserRegister):
 
     # check if email already exists
@@ -83,7 +100,7 @@ def refresh_token(db: Session, refresh_token: str):
             detail="Usuário não encontrado"
         )
 
-
+    _invalidate_payload(payload)
 
     # generate new tokens
     new_access_token = create_access_token(subject=str(user.id))
@@ -98,23 +115,10 @@ def refresh_token(db: Session, refresh_token: str):
 
 
 # Logout function that adds the token's jti to the blacklist
-def logout_user(token: str):
-    payload = decode_token(token)
-
-    if not payload:
-        raise HTTPException(status_code=401, detail="Token inválido")
-
-    jti = payload.get("jti")
-    exp = payload.get("exp")
-
-    if not jti or not exp:
-        raise HTTPException(status_code=401, detail="Token inválido")
-
-    now = datetime.now(timezone.utc)
-    expire_time = datetime.fromtimestamp(exp, tz=timezone.utc)
-    expires_in = int((expire_time - now).total_seconds())
-
-    if expires_in > 0:
-        add(jti, expires_in)
+def logout_user(access_token: str, refresh_token: str | None = None):
+    _invalidate_payload(decode_token(access_token))
+    
+    if refresh_token:
+        _invalidate_payload(decode_token(refresh_token))
 
     return {"message": "Logout realizado com sucesso"}
