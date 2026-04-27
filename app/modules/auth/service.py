@@ -1,8 +1,9 @@
+import uuid
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token, get_password_hash, verify_password, create_access_token
+from app.core.security import create_refresh_token, decode_token, get_password_hash, verify_password, create_access_token
 from app.modules.auth.schemas import UserRegister, UserLogin
 from app.modules.users import repository as user_repository
 from app.modules.auth.blacklist import add
@@ -44,14 +45,61 @@ def authenticate_user(db: Session, user_in: UserLogin):
     
     # create JWT token
     access_token = create_access_token(subject=str(user.id))
+    refresh_token = create_refresh_token(subject=str(user.id))
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+
+
+def refresh_token(db: Session, refresh_token: str):
+    payload = decode_token(refresh_token)
+    
+    # verify token validity
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Refresh token inválido ou expirado"
+        )
+
+    # verify token type
+    if payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Tipo de token inválido"
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Token sem identificação de usuário"
+        )
+
+    # verify if user still exists
+    user = user_repository.get_user_by_id(db, user_id=uuid.UUID(user_id))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Usuário não encontrado"
+        )
+
+
+
+    # generate new tokens
+    new_access_token = create_access_token(subject=str(user.id))
+    new_refresh_token = create_refresh_token(subject=str(user.id))
+
+    return {
+        "access_token": new_access_token, 
+        "refresh_token": new_refresh_token, 
+        "token_type": "bearer"
+    }
 
 
 
 # Logout function that adds the token's jti to the blacklist
 def logout_user(token: str):
-    payload = decode_access_token(token)
+    payload = decode_token(token)
 
     if not payload:
         raise HTTPException(status_code=401, detail="Token inválido")

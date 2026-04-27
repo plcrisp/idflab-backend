@@ -22,6 +22,10 @@ def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+@router.post("/refresh", response_model=schemas.Token)
+def refresh_access_token(token_req: schemas.RefreshTokenRequest, db: Session = Depends(get_db)):
+    return service.refresh_token(db, token_req.refresh_token)
+
 @router.post("/logout")
 def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return service.logout_user(credentials.credentials)

@@ -1,9 +1,10 @@
+from datetime import datetime, timezone
 import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token
+from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
 from app.modules.users import repository as user_repository
@@ -21,7 +22,7 @@ def get_current_user(
     token = credentials.credentials
 
     # decode token to get user ID
-    payload = decode_access_token(token)
+    payload = decode_token(token)
 
     if not payload:
         raise HTTPException(

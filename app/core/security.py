@@ -17,7 +17,7 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-# generating JWT tokens
+# generating JWT access tokens
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
     
     if expires_delta:
@@ -45,8 +45,34 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
 
 
 
+# generating JWT refresh tokens
+def create_refresh_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS) # 7 days
+
+    jti = str(uuid.uuid4())
+
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "jti": jti,
+        "type": "refresh" # to differentiate from access tokens
+    }
+
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )
+
+    return encoded_jwt
+
+
+
 # decoding JWT tokens
-def decode_access_token(token: str) -> str | None:
+def decode_token(token: str) -> str | None:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
