@@ -70,6 +70,18 @@ def create_refresh_token(subject: Union[str, Any], expires_delta: timedelta = No
     return encoded_jwt
 
 
+# generating JWT email verification tokens
+def create_verification_token(email: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=24)
+    to_encode = {
+        "exp": expire,
+        "sub": email,
+        "type": "verification"
+    }
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+
 
 # decoding JWT tokens
 def decode_token(token: str) -> str | None:

@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 20
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    RESEND_API_KEY: str
+    VERIFY_EMAIL_TEMPLATE_ID: str
+
     model_config = ConfigDict(
         env_file=".env",
         extra="ignore" 

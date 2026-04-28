@@ -29,3 +29,7 @@ def refresh_access_token(token_req: schemas.RefreshTokenRequest, db: Session = D
 @router.post("/logout")
 def logout(logout_req: schemas.LogoutRequest, credentials: HTTPAuthorizationCredentials = Depends(security)):
     return service.logout_user(access_token=credentials.credentials, refresh_token=logout_req.refresh_token)
+
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    return service.verify_user_email(db, token)

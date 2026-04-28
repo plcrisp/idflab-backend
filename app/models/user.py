@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from sqlalchemy import String, DateTime
+from sqlalchemy import String, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -21,5 +21,6 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     user_type: Mapped[UserTypeEnum] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     projects: Mapped[list["Project"]] = relationship(back_populates="user")

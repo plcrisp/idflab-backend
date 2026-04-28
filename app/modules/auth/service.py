@@ -3,10 +3,11 @@ from fastapi import HTTPException, status
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
-from app.core.security import create_refresh_token, decode_token, get_password_hash, verify_password, create_access_token
+from app.core.security import create_refresh_token, create_verification_token, decode_token, get_password_hash, verify_password, create_access_token
 from app.modules.auth.schemas import UserRegister, UserLogin
 from app.modules.users import repository as user_repository
 from app.modules.auth.blacklist import add
+from app.workers.tasks.auth import send_verification_email
 
 
 
@@ -41,9 +42,15 @@ def register_user(db: Session, user_in: UserRegister):
     user_data = user_in.model_dump()
     password_plana = user_data.pop("password")
     user_data["password_hash"] = get_password_hash(password_plana)
+    user_data["is_verified"] = False
     
     # creating user
     new_user = user_repository.create_user(db, user_data)
+
+    # verify email
+    token = create_verification_token(email=new_user.email)
+    send_verification_email.delay(new_user.email, new_user.name, token)
+
     return new_user
 
 
@@ -57,6 +64,13 @@ def authenticate_user(db: Session, user_in: UserLogin):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha incorretos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="E-mail não verificado. Por favor, verifique seu e-mail antes de fazer login.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -122,3 +136,45 @@ def logout_user(access_token: str, refresh_token: str | None = None):
         _invalidate_payload(decode_token(refresh_token))
 
     return {"message": "Logout realizado com sucesso"}
+
+
+
+def verify_user_email(db: Session, token: str):
+    payload = decode_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Token de verificação inválido ou expirado."
+        )
+
+    if payload.get("type") != "verification":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Tipo de token inválido."
+        )
+
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Token sem identificação de usuário."
+        )
+
+    user = user_repository.get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Usuário não encontrado."
+        )
+
+    if user.is_verified:
+        return {"message": "Sua conta já está verificada! Você já pode fazer login."}
+
+    # verify user and commit to database
+    user.is_verified = True
+    db.commit()
+
+    _invalidate_payload(payload)
+
+    return {"message": "E-mail verificado com sucesso!"}

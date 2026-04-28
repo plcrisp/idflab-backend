@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 import uuid
+from datetime import datetime
 
 from app.models.enums import UserTypeEnum
 
@@ -8,7 +9,8 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=72)
     user_type: UserTypeEnum
-    profile_picture_url: str | None
+    profile_picture_url: str | None = None
+    is_verified: bool = False
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -31,5 +33,6 @@ class UserResponse(BaseModel):
     email: EmailStr
     user_type: UserTypeEnum
     profile_picture_url: str | None
+    created_at: datetime
     class Config:
         from_attributes = True
