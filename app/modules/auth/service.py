@@ -178,3 +178,20 @@ def verify_user_email(db: Session, token: str):
     _invalidate_payload(payload)
 
     return {"message": "E-mail verificado com sucesso!"}
+
+
+
+def resend_email_verification(db: Session, user_email: str):
+    
+    generic_response = {"message": "Se o e-mail estiver cadastrado e pendente, um novo link de verificação será enviado."}
+
+    existing_user = user_repository.get_user_by_email(db, user_email)
+    
+    if not existing_user or existing_user.is_verified:
+        return generic_response
+
+    user_name = existing_user.name
+    token = create_verification_token(email=user_email)
+    send_verification_email.delay(user_email, user_name, token)
+
+    return generic_response

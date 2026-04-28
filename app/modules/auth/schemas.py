@@ -27,6 +27,9 @@ class RefreshTokenRequest(BaseModel):
 class LogoutRequest(BaseModel):
     refresh_token: str | None = None
 
+class ResendEmailRequest(BaseModel):
+    email: EmailStr
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     name: str

@@ -33,3 +33,7 @@ def logout(logout_req: schemas.LogoutRequest, credentials: HTTPAuthorizationCred
 @router.get("/verify-email")
 def verify_email(token: str, db: Session = Depends(get_db)):
     return service.verify_user_email(db, token)
+
+@router.post("/resend-verification-email")
+def resend_email(request: schemas.ResendEmailRequest,db: Session = Depends(get_db)):
+    return service.resend_email_verification(db=db, user_email=request.email)
