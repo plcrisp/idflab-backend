@@ -5,7 +5,7 @@ from app.core.config import settings
 @celery.task(name="send_verification_email")
 def send_verification_email(email_to: str, user_name: str, token: str):
     resend.api_key = settings.RESEND_API_KEY
-    verify_link = f"http://localhost:4200/verify-email?token={token}"
+    verify_link = f"http://localhost:4200/auth/verify-email?token={token}"
     template_id = settings.VERIFY_EMAIL_TEMPLATE_ID
     
     try:
