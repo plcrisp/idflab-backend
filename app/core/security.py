@@ -6,6 +6,7 @@ import jwt
 import uuid
 
 from app.core.config import settings
+from app.modules.auth.blacklist import add, exists
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -76,7 +77,8 @@ def create_password_token(email: str) -> str:
     to_encode = {
         "exp": expire,
         "sub": email,
-        "type": "password"
+        "type": "password",
+        "jti": str(uuid.uuid4())
     }
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
@@ -89,7 +91,8 @@ def create_verification_token(email: str) -> str:
     to_encode = {
         "exp": expire,
         "sub": email,
-        "type": "verification"
+        "type": "verification",
+        "jti": str(uuid.uuid4())
     }
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
@@ -97,9 +100,33 @@ def create_verification_token(email: str) -> str:
 
 
 # decoding JWT tokens
-def decode_token(token: str) -> str | None:
+def decode_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        jti = payload.get("jti")
+        
+        if jti and exists(jti): # verifying blacklist
+            return None
+            
         return payload
+        
     except PyJWTError:
         return None
+    
+
+
+# Helper function to invalidate tokens by adding their jti to the blacklist
+def invalidate_payload(payload: dict | None):
+    if not payload:
+        return
+        
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    
+    if jti and exp:
+        now = datetime.now(timezone.utc)
+        expire_time = datetime.fromtimestamp(exp, tz=timezone.utc)
+        expires_in = int((expire_time - now).total_seconds())
+        if expires_in > 0:
+            add(jti, expires_in)

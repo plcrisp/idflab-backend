@@ -4,29 +4,10 @@ from fastapi import HTTPException, status
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
-from app.core.security import create_password_token, create_refresh_token, create_verification_token, decode_token, get_password_hash, verify_password, create_access_token
+from app.core.security import invalidate_payload, create_password_token, create_refresh_token, create_verification_token, decode_token, get_password_hash, verify_password, create_access_token
 from app.modules.auth.schemas import GoogleRegisterRequest, UserRegister, UserLogin, UserResetPassword
 from app.modules.users import repository as user_repository
-from app.modules.auth.blacklist import add
 from app.workers.tasks.auth import send_verification_email, send_password_email
-from app.core.config import settings
-
-
-
-# Helper function to invalidate tokens by adding their jti to the blacklist
-def _invalidate_payload(payload: dict | None):
-    if not payload:
-        return
-        
-    jti = payload.get("jti")
-    exp = payload.get("exp")
-    
-    if jti and exp:
-        now = datetime.now(timezone.utc)
-        expire_time = datetime.fromtimestamp(exp, tz=timezone.utc)
-        expires_in = int((expire_time - now).total_seconds())
-        if expires_in > 0:
-            add(jti, expires_in)
 
 
 
@@ -34,14 +15,14 @@ def register_user(db: Session, user_in: UserRegister):
 
     # check if email already exists
     existing_user = user_repository.get_user_by_email(db, user_in.email)
-    if existing_user.auth_provider == "GOOGLE":
-        raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Este e-mail já está cadastrado usando o Google. Por favor, vá para a tela de Login e clique no botão do Google.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
     if existing_user:
+        if existing_user.auth_provider == "GOOGLE":
+            raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Este e-mail já está cadastrado usando o Google. Por favor, vá para a tela de acesso e clique no botão do Google.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Este e-mail já está em uso."
@@ -69,15 +50,23 @@ def authenticate_user(db: Session, user_in: UserLogin):
     # search for user by email
     user = user_repository.get_user_by_email(db, user_in.email)
 
+    # verify user existence first to avoid NoneType access
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="E-mail ou senha incorretos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if user.auth_provider == "GOOGLE":
         raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Por favor, utilize o botão 'Login com Google' para entrar.",
+                detail="Por favor, utilize o botão 'Continuar com o Google' para entrar.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    
-    # verify password and user existence
-    if not user or not verify_password(user_in.password, user.password_hash):
+
+    # verify password
+    if not verify_password(user_in.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha incorretos",
@@ -212,7 +201,7 @@ def refresh_token(db: Session, refresh_token: str):
             detail="Usuário não encontrado"
         )
 
-    _invalidate_payload(payload)
+    invalidate_payload(payload)
 
     # generate new tokens
     new_access_token = create_access_token(subject=str(user.id))
@@ -228,10 +217,10 @@ def refresh_token(db: Session, refresh_token: str):
 
 # Logout function that adds the token's jti to the blacklist
 def logout_user(access_token: str, refresh_token: str | None = None):
-    _invalidate_payload(decode_token(access_token))
+    invalidate_payload(decode_token(access_token))
     
     if refresh_token:
-        _invalidate_payload(decode_token(refresh_token))
+        invalidate_payload(decode_token(refresh_token))
 
     return {"message": "Logout realizado com sucesso"}
 
@@ -273,7 +262,7 @@ def verify_user_email(db: Session, token: str):
     user.is_verified = True
     db.commit()
 
-    _invalidate_payload(payload)
+    invalidate_payload(payload)
 
     return {"message": "E-mail verificado com sucesso!"}
 
@@ -332,7 +321,7 @@ def reset_password(db: Session, user_reset_password: UserResetPassword):
     user.password_hash = get_password_hash(user_reset_password.new_password)
     db.commit()
 
-    _invalidate_payload(payload)
+    invalidate_payload(payload)
 
     return {"message": "Senha alterada com sucesso!"}
 
