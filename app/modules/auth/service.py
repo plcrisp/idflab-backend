@@ -1,13 +1,15 @@
 import uuid
+import requests
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.security import create_password_token, create_refresh_token, create_verification_token, decode_token, get_password_hash, verify_password, create_access_token
-from app.modules.auth.schemas import UserRegister, UserLogin, UserResetPassword
+from app.modules.auth.schemas import GoogleRegisterRequest, UserRegister, UserLogin, UserResetPassword
 from app.modules.users import repository as user_repository
 from app.modules.auth.blacklist import add
 from app.workers.tasks.auth import send_verification_email, send_password_email
+from app.core.config import settings
 
 
 
@@ -42,6 +44,7 @@ def register_user(db: Session, user_in: UserRegister):
     user_data = user_in.model_dump()
     password_plana = user_data.pop("password")
     user_data["password_hash"] = get_password_hash(password_plana)
+    user_data["auth_provider"] = "LOCAL"
     user_data["is_verified"] = False
     
     # creating user
@@ -79,6 +82,87 @@ def authenticate_user(db: Session, user_in: UserLogin):
     refresh_token = create_refresh_token(subject=str(user.id))
     
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+
+
+def handle_google_login(db: Session, access_token: str):
+    try:
+        google_response = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        
+        if google_response.status_code != 200:
+            raise ValueError("Token do Google recusado pela API.")
+
+        user_info = google_response.json()
+        email = user_info.get("email")
+        name = user_info.get("name")
+        profile_picture_url = user_info.get("picture")
+        
+        if not email:
+            raise ValueError("O token não forneceu acesso ao e-mail.")
+
+    except Exception as e:
+        print(f"[Erro Google Login] {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Token do Google inválido ou expirado."
+        )
+
+    # 2. search for user
+    user = user_repository.get_user_by_email(db, email)
+
+    if user:
+        # if the user is already registered
+        access_token = create_access_token(subject=str(user.id))
+        refresh_token = create_refresh_token(subject=str(user.id))
+        
+        return {
+            "needs_registration": False,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer"
+        }
+    else:
+        # new user
+        return {
+            "needs_registration": True,
+            "email": email,
+            "name": name,
+            "profile_picture_url": profile_picture_url
+        }
+
+
+
+def register_google_user(db: Session, user_in: GoogleRegisterRequest):
+    # verify if user exists
+    existing_user = user_repository.get_user_by_email(db, user_in.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Este e-mail já está em uso."
+        )
+    
+    user_data = user_in.model_dump()
+    
+    random_password = str(uuid.uuid4())
+    user_data["password_hash"] = get_password_hash(random_password)
+    
+    user_data["is_verified"] = True 
+    
+    user_data["auth_provider"] = "GOOGLE"
+    
+    new_user = user_repository.create_user(db, user_data)
+
+    access_token = create_access_token(subject=str(new_user.id))
+    refresh_token = create_refresh_token(subject=str(new_user.id))
+
+    return {
+        "access_token": access_token, 
+        "refresh_token": refresh_token, 
+        "token_type": "bearer"
+    }
 
 
 

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from app.models.project import Project
 
 from ..db.base import Base
-from .enums import UserTypeEnum
+from .enums import LoginProviderEnum, UserTypeEnum
 
 class User(Base):
     __tablename__ = "users"
@@ -20,6 +20,7 @@ class User(Base):
     profile_picture_url: Mapped[str | None] = mapped_column(String, nullable=True)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     user_type: Mapped[UserTypeEnum] = mapped_column(nullable=False)
+    auth_provider: Mapped[LoginProviderEnum] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 

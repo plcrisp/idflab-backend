@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     VERIFY_EMAIL_TEMPLATE_ID: str
     RESET_PASSWORD_TEMPLATE_ID: str
 
+    GOOGLE_CLIENT_ID: str
+
     model_config = ConfigDict(
         env_file=".env",
         extra="ignore" 

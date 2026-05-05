@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -17,6 +17,14 @@ def register(user_in: schemas.UserRegister, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.Token)
 def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
     return service.authenticate_user(db, user_in)
+
+@router.post("/google")
+def google_auth(request: schemas.GoogleTokenRequest, db: Session = Depends(get_db)):
+    return service.handle_google_login(db, request.token)
+
+@router.post("/google/register", status_code=status.HTTP_201_CREATED)
+def register_google(user_in: schemas.GoogleRegisterRequest, db: Session = Depends(get_db)):
+    return service.register_google_user(db, user_in)
 
 @router.get("/me", response_model=schemas.UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):

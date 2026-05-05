@@ -12,6 +12,11 @@ class UserTypeEnum(str, enum.Enum):
     RESEARCHER = "RESEARCHER"
     PROFESSOR = "PROFESSOR"
 
+class LoginProviderEnum(str, enum.Enum):
+    GOOGLE = "GOOGLE"
+    LOCAL = "LOCAL"
+    BOTH = "BOTH"
+
 class ScenarioEnum(str, enum.Enum):
     HISTORICAL = "HISTORICAL"
     SSP245 = "SSP245"

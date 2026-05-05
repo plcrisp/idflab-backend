@@ -13,3 +13,4 @@ pydantic[email]
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
 resend
+google-auth

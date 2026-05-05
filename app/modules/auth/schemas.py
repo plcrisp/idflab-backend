@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 import uuid
 from datetime import datetime
 
-from app.models.enums import UserTypeEnum
+from app.models.enums import LoginProviderEnum, UserTypeEnum
 
 class UserRegister(BaseModel):
     name: str
@@ -11,10 +11,19 @@ class UserRegister(BaseModel):
     user_type: UserTypeEnum
     profile_picture_url: str | None = None
     is_verified: bool = False
+    auth_provider: LoginProviderEnum
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class GoogleRegisterRequest(BaseModel):
+    email: EmailStr
+    name: str
+    user_type: str
+
+class GoogleTokenRequest(BaseModel):
+    token: str
 
 class Token(BaseModel):
     access_token: str
