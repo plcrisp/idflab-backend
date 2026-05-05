@@ -34,6 +34,13 @@ def register_user(db: Session, user_in: UserRegister):
 
     # check if email already exists
     existing_user = user_repository.get_user_by_email(db, user_in.email)
+    if existing_user.auth_provider == "GOOGLE":
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Este e-mail já está cadastrado usando o Google. Por favor, vá para a tela de Login e clique no botão do Google.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -61,6 +68,13 @@ def register_user(db: Session, user_in: UserRegister):
 def authenticate_user(db: Session, user_in: UserLogin):
     # search for user by email
     user = user_repository.get_user_by_email(db, user_in.email)
+
+    if user.auth_provider == "GOOGLE":
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Por favor, utilize o botão 'Login com Google' para entrar.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     
     # verify password and user existence
     if not user or not verify_password(user_in.password, user.password_hash):
@@ -310,6 +324,9 @@ def reset_password(db: Session, user_reset_password: UserResetPassword):
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="Usuário não encontrado."
         )
+    
+    if user.auth_provider == "GOOGLE":
+        user.auth_provider = "BOTH"
 
     # generate new password hash and commit to database
     user.password_hash = get_password_hash(user_reset_password.new_password)
