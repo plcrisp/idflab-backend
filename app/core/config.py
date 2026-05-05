@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     RESEND_API_KEY: str
     VERIFY_EMAIL_TEMPLATE_ID: str
+    RESET_PASSWORD_TEMPLATE_ID: str
 
     model_config = ConfigDict(
         env_file=".env",

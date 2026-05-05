@@ -29,3 +29,33 @@ def send_verification_email(email_to: str, user_name: str, token: str):
     except Exception as e:
         print(f"❌ Error sending email: {str(e)}")
         raise e
+    
+
+
+@celery.task(name="send_password_email")
+def send_password_email(email_to: str, user_name: str, token: str):
+    resend.api_key = settings.RESEND_API_KEY
+    reset_link = f"http://localhost:4200/auth/reset-password?token={token}"
+    template_id = settings.RESET_PASSWORD_TEMPLATE_ID
+    
+    try:
+        params = {
+            "from": "IDFLab <onboarding@resend.dev>",
+            "to": [email_to],
+            "subject": "Recupere sua senha - IDFLab",
+            "template": {
+                "id": template_id,
+                "variables": {
+                    "user_name": user_name,
+                    "reset_link": reset_link,
+                },
+            },
+        }
+        
+        response = resend.Emails.send(params)
+        print(f"✅ Reset email sent to {email_to}. Response: {response}")
+        return response
+        
+    except Exception as e:
+        print(f"❌ Error sending email: {str(e)}")
+        raise e

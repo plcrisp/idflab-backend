@@ -3,11 +3,11 @@ from fastapi import HTTPException, status
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
-from app.core.security import create_refresh_token, create_verification_token, decode_token, get_password_hash, verify_password, create_access_token
-from app.modules.auth.schemas import UserRegister, UserLogin
+from app.core.security import create_password_token, create_refresh_token, create_verification_token, decode_token, get_password_hash, verify_password, create_access_token
+from app.modules.auth.schemas import UserRegister, UserLogin, UserResetPassword
 from app.modules.users import repository as user_repository
 from app.modules.auth.blacklist import add
-from app.workers.tasks.auth import send_verification_email
+from app.workers.tasks.auth import send_verification_email, send_password_email
 
 
 
@@ -193,5 +193,61 @@ def resend_email_verification(db: Session, user_email: str):
     user_name = existing_user.name
     token = create_verification_token(email=user_email)
     send_verification_email.delay(user_email, user_name, token)
+
+    return generic_response
+
+
+
+def reset_password(db: Session, user_reset_password: UserResetPassword):
+    payload = decode_token(user_reset_password.token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Token de recuperação inválido ou expirado."
+        )
+
+    if payload.get("type") != "password":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Tipo de token inválido."
+        )
+
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Token sem identificação de usuário."
+        )
+
+    user = user_repository.get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Usuário não encontrado."
+        )
+
+    # generate new password hash and commit to database
+    user.password_hash = get_password_hash(user_reset_password.new_password)
+    db.commit()
+
+    _invalidate_payload(payload)
+
+    return {"message": "Senha alterada com sucesso!"}
+
+
+
+def send_reset_password_email(db: Session, user_email: str):
+    
+    generic_response = {"message": "Se o e-mail estiver cadastrado, um link para recuperação será enviado."}
+
+    existing_user = user_repository.get_user_by_email(db, user_email)
+    
+    if not existing_user:
+        return generic_response
+
+    user_name = existing_user.name
+    token = create_password_token(email=user_email)
+    send_password_email.delay(user_email, user_name, token)
 
     return generic_response

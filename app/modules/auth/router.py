@@ -37,3 +37,11 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 @router.post("/resend-verification-email")
 def resend_email(request: schemas.ResendEmailRequest,db: Session = Depends(get_db)):
     return service.resend_email_verification(db=db, user_email=request.email)
+
+@router.post("/send-password-reset-email")
+def send_password_email(request: schemas.ResendEmailRequest,db: Session = Depends(get_db)):
+    return service.send_reset_password_email(db=db, user_email=request.email)
+
+@router.post("/reset-password")
+def password_reset(request: schemas.UserResetPassword,db: Session = Depends(get_db)):
+    return service.reset_password(db=db, user_reset_password=request)

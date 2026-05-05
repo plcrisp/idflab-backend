@@ -30,6 +30,10 @@ class LogoutRequest(BaseModel):
 class ResendEmailRequest(BaseModel):
     email: EmailStr
 
+class UserResetPassword(BaseModel):
+    token: str
+    new_password: str
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     name: str
