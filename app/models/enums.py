@@ -34,6 +34,15 @@ class SourceEnum(str, enum.Enum):
     CEMADEN = "CEMADEN"
     INMET = "INMET"
 
+class StationTypeEnum(str, enum.Enum):
+    ACQUA = "Acqua"
+    PLUVIOMETRICA = "Pluviométrica"
+    AGROMETEOROLOGICA = "Agrometeorológica"
+    GEOTECNICA = "Geotécnica"
+    HIDROLOGICA = "Hidrológica"
+    AUTOMATICA = "Automática"
+    CONVENCIONAL = "Convencional"
+
 class DisaggregationEnum(str, enum.Enum):
     NONE = "NONE"
     CETESB = "CETESB"

@@ -76,7 +76,7 @@ def authenticate_user(db: Session, user_in: UserLogin):
     if not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="E-mail não verificado. Por favor, verifique seu e-mail antes de fazer login.",
+            detail="E-mail não verificado. Verifique sua caixa de entrada.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
